@@ -1,0 +1,26 @@
+# Ignore files not needed in Docker image
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+README.md
+.vscode
+.idea
+.DS_Store
+*.log
+npm-debug.log
+node_modules
+.env.local
+.env.*.local
+test_db_connection.py
+create_admin_user.py
+check_user.py
