@@ -10,10 +10,4 @@ services:
       JWT_ACCESS_TOKEN_EXPIRE_HOURS: ${JWT_ACCESS_TOKEN_EXPIRE_HOURS:-24}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    networks:
-      - nisa_network
     restart: unless-stopped
-
-networks:
-  nisa_network:
-    driver: bridge
