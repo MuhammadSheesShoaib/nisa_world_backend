@@ -595,6 +595,13 @@ class ExportService:
         story.append(invoice_info_table)
         story.append(Spacer(1, 0.3*inch))
         
+        # Advance amount is invoice-level (same for all items in bulk sale) - use first sale
+        first_sale_for_payment = sales_data[0]
+        payment_type = str(getattr(first_sale_for_payment, 'payment_type', None) or "1")
+        total_advance = float(getattr(first_sale_for_payment, 'advance_amount', None) or 0)
+        total_remaining = total_amount - total_advance
+        is_advance_payment = (payment_type == "2") or (total_advance > 0)
+        
         # Items Table
         items_table_data = [['ITEM', 'QTY', 'PRICE/UNIT', 'TOTAL']]
         
@@ -635,10 +642,11 @@ class ExportService:
         story.append(items_table)
         story.append(Spacer(1, 0.3*inch))
         
-        # Summary Section
-        summary_data = [
-            ['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"],
-        ]
+        # Summary Section - Advance: Total, Advance Amount, Paid Amount, Balance Due; Full: Total only
+        summary_data = [['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"]]
+        if is_advance_payment:
+            summary_data.append(['ADVANCE AMOUNT:', f"Rs {total_advance:,.2f}"])
+            summary_data.append(['BALANCE DUE:', f"Rs {total_remaining:,.2f}"])
         
         summary_table = Table(summary_data, colWidths=[5*inch, 2*inch])
         summary_table.setStyle(TableStyle([
@@ -744,6 +752,13 @@ class ExportService:
         story.append(invoice_info_table)
         story.append(Spacer(1, 0.3*inch))
         
+        # Advance amount is invoice-level (same for all items in bulk expense) - use first expense
+        first_expense_for_payment = expenses_data[0]
+        payment_method = str(getattr(first_expense_for_payment, 'payment_method', None) or "1")
+        total_advance = float(getattr(first_expense_for_payment, 'advance_amount', None) or 0)
+        total_remaining = total_amount - total_advance
+        is_advance_payment = (payment_method == "2") or (total_advance > 0)
+        
         # Items Table
         items_table_data = [['ITEM', 'AMOUNT']]
         
@@ -782,10 +797,11 @@ class ExportService:
         story.append(items_table)
         story.append(Spacer(1, 0.3*inch))
         
-        # Summary Section
-        summary_data = [
-            ['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"],
-        ]
+        # Summary Section - Advance: Total, Advance Amount, Balance Due; Full: Total only
+        summary_data = [['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"]]
+        if is_advance_payment:
+            summary_data.append(['ADVANCE AMOUNT:', f"Rs {total_advance:,.2f}"])
+            summary_data.append(['BALANCE DUE:', f"Rs {total_remaining:,.2f}"])
         
         summary_table = Table(summary_data, colWidths=[5*inch, 2*inch])
         summary_table.setStyle(TableStyle([

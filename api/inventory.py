@@ -173,17 +173,6 @@ async def add_inventory_items_to_invoice(
                 detail="At least one inventory item is required"
             )
 
-        # Basic permission check: staff can only add to invoices that belong to them
-        if current_user.role == "staff":
-            existing = await db.inventory.find_first(
-                where={"invoice_no": invoice_no, "added_by": str(current_user.id)}
-            )
-            if not existing:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You don't have permission to add items to this invoice"
-                )
-
         created_items: List[InventoryResponse] = []
 
         for item in inventory_data.items:
@@ -241,19 +230,12 @@ async def get_inventory_products(
 ):
     """
     Get inventory products
-    - Admin: sees all products
-    - Staff: sees only their own products
+    - All users (admin and staff) see all products - inventory is shared
     """
     try:
         db = get_db()
         
-        # Build where clause based on user role
-        where_clause = {}
-        if current_user.role == "staff":
-            where_clause["added_by"] = str(current_user.id)
-        
         products_data = await db.inventory.find_many(
-            where=where_clause if where_clause else None,
             order={"created_at": "desc"}
         )
         
@@ -321,8 +303,7 @@ async def update_inventory_product(
 ):
     """
     Update an inventory product
-    - Admin: can update any product
-    - Staff: can only update their own products
+    - All users can update any product (inventory is shared)
     """
     try:
         db = get_db()
@@ -336,13 +317,6 @@ async def update_inventory_product(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
-            )
-        
-        # Check permissions
-        if current_user.role != "admin" and existing_product.added_by != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to edit this product"
             )
         
         # Build update data (only include fields that were provided)
@@ -400,8 +374,7 @@ async def delete_inventory_product(
 ):
     """
     Delete an inventory product
-    - Admin: can delete any product
-    - Staff: can only delete their own products
+    - All users can delete any product (inventory is shared)
     """
     try:
         db = get_db()
@@ -415,13 +388,6 @@ async def delete_inventory_product(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
-            )
-        
-        # Check permissions
-        if current_user.role != "admin" and existing_product.added_by != str(current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to delete this product"
             )
         
         # Delete product
@@ -452,20 +418,14 @@ async def generate_inventory_invoice_pdf(
 ):
     """
     Generate PDF invoice for a specific inventory invoice_no
-    - Fetches all inventory items with this invoice_no
-    - Staff can only generate invoices for their own inventory
-    - Admin can generate any invoice
+    - All users can generate invoices for any inventory (inventory is shared)
     """
     try:
         db = get_db()
         
         # Fetch all inventory items related to this invoice_no
-        inventory_where = {"invoice_no": invoice_no}
-        if current_user.role == "staff":
-            inventory_where["added_by"] = str(current_user.id)
-        
         inventory_data = await db.inventory.find_many(
-            where=inventory_where,
+            where={"invoice_no": invoice_no},
             order={"created_at": "asc"}
         )
         

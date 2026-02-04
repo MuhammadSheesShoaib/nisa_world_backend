@@ -21,12 +21,10 @@ async def get_dashboard_stats(
         # Build where clause based on user role
         sales_where = {}
         expenses_where = {}
-        inventory_where = {}
         
         if current_user.role == "staff":
             sales_where["sold_by"] = str(current_user.id)
             expenses_where["added_by"] = str(current_user.id)
-            inventory_where["added_by"] = str(current_user.id)
         
         # Get sales data
         sales_data = await db.sales.find_many(
@@ -53,10 +51,8 @@ async def get_dashboard_stats(
         # Calculate net profit: Revenue - COGS - Operating Expenses
         total_profit = total_sales - total_cogs - total_expenses
         
-        # Get inventory data
-        inventory_data = await db.inventory.find_many(
-            where=inventory_where if inventory_where else None
-        )
+        # Get inventory data (shared - all users see all inventory)
+        inventory_data = await db.inventory.find_many()
         
         inventory_value = sum((float(item.cost_price) * item.quantity) for item in inventory_data)
         inventory_count = len(inventory_data)

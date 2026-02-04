@@ -149,8 +149,8 @@ async def get_monthly_detailed_data(
     
     if current_user.role == "staff":
         sales_where['sold_by'] = str(current_user.id)
-        inventory_where['added_by'] = str(current_user.id)
         expenses_where['added_by'] = str(current_user.id)
+        # Inventory is shared - staff see all inventory
     
     # Fetch sales
     sales_data = await db.sales.find_many(
@@ -319,8 +319,8 @@ async def export_monthly_pdf(
     
     if current_user.role == "staff":
         sales_where['sold_by'] = str(current_user.id)
-        inventory_where['added_by'] = str(current_user.id)
         expenses_where['added_by'] = str(current_user.id)
+        # Inventory is shared - staff see all inventory
     
     # Fetch sales
     sales_data = await db.sales.find_many(
