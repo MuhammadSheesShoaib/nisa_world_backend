@@ -36,6 +36,7 @@ async def create_expense(
             "amount": expense.amount,
             "payment_method": str(expense.payment_method),
             "advance_amount": expense.advance_amount if expense.advance_amount else 0,
+            "entry_date": expense.entry_date,
             "added_by": str(current_user.id),
             "used": False,
         }
@@ -75,7 +76,8 @@ async def create_expense(
             added_by_name=current_user.name,
             added_by_role=current_user.role,
             edited=False,  # New entries are not edited
-            created_at=str(created_expense.created_at) if created_expense.created_at else None
+            created_at=str(created_expense.created_at) if created_expense.created_at else None,
+            entry_date=str(created_expense.entry_date) if created_expense.entry_date else None
         )
     except HTTPException:
         raise
@@ -140,6 +142,7 @@ async def create_bulk_expense(
                     "amount": item.amount,
                     "payment_method": str(expense_data.payment_method),
                     "advance_amount": expense_data.advance_amount if expense_data.advance_amount else 0,
+                    "entry_date": expense_data.entry_date,
                     "added_by": str(current_user.id),
                     "used": False,
                 }
@@ -174,7 +177,8 @@ async def create_bulk_expense(
                 added_by_name=current_user.name,
                 added_by_role=current_user.role,
                 edited=False,
-                created_at=str(created_expense.created_at) if created_expense.created_at else None
+                created_at=str(created_expense.created_at) if created_expense.created_at else None,
+                entry_date=str(created_expense.entry_date) if created_expense.entry_date else None
             ))
         
         return created_expenses
@@ -235,6 +239,7 @@ async def add_expense_items_to_invoice(
                     "amount": item.amount,
                     "payment_method": str(expense_data.payment_method),
                     "advance_amount": final_advance if final_advance else 0,
+                    "entry_date": expense_data.entry_date,
                     "added_by": str(current_user.id),
                     "used": False,
                     "edited": True,
@@ -263,7 +268,8 @@ async def add_expense_items_to_invoice(
                 added_by_name=current_user.name,
                 added_by_role=current_user.role,
                 edited=True,
-                created_at=str(created_expense.created_at) if created_expense.created_at else None
+                created_at=str(created_expense.created_at) if created_expense.created_at else None,
+                entry_date=str(created_expense.entry_date) if created_expense.entry_date else None
             ))
 
         return created_expenses
@@ -357,7 +363,8 @@ async def get_expenses(
                 added_by_name=user_info["name"],
                 added_by_role=user_info["role"],
                 edited=item.edited if item.edited is not None else False,
-                created_at=str(item.created_at) if item.created_at else None
+                created_at=str(item.created_at) if item.created_at else None,
+                entry_date=str(item.entry_date) if item.entry_date else None
             ))
         
         return expenses
@@ -433,6 +440,9 @@ async def update_expense(
         if expense_update.description is not None:
             update_data["description"] = expense_update.description
         
+        if expense_update.entry_date is not None:
+            update_data["entry_date"] = expense_update.entry_date
+        
         # Update the expense
         updated_expense = await db.expenses.update(
             where={"id": expense_id},
@@ -476,6 +486,7 @@ async def update_expense(
             added_by_name=user_info["name"],
             added_by_role="admin" if user_info["role_id"] == 1 else "staff",
             edited=updated_expense.edited if updated_expense.edited is not None else False,
+            entry_date=str(updated_expense.entry_date) if updated_expense.entry_date else None,
             created_at=str(updated_expense.created_at) if updated_expense.created_at else None
         )
     except HTTPException:

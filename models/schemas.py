@@ -94,8 +94,8 @@ class InventoryCreate(BaseModel):
     product_name: str
     category: str
     cost_price: float
-    sale_price: float = 0  # Optional, can be 0
     quantity: int
+    entry_date: datetime
 
 
 class InventoryResponse(BaseModel):
@@ -104,21 +104,21 @@ class InventoryResponse(BaseModel):
     product_name: str
     category: str
     cost_price: float
-    sale_price: Optional[float] = None  # Not stored in DB, calculated
     quantity: int
     added_by: str
     added_by_name: Optional[str] = None
     added_by_role: Optional[str] = None
     edited: Optional[bool] = False
     created_at: Optional[str] = None
+    entry_date: Optional[str] = None
 
 
 class InventoryUpdate(BaseModel):
     product_name: Optional[str] = None
     category: Optional[str] = None
     cost_price: Optional[float] = None
-    sale_price: Optional[float] = None
     quantity: Optional[int] = None
+    entry_date: Optional[datetime] = None
 
 
 # Bulk Inventory Schemas (for multi-item inventory)
@@ -126,12 +126,12 @@ class InventoryItem(BaseModel):
     product_name: str
     category: str
     cost_price: float
-    sale_price: Optional[float] = None
     quantity: int
 
 
 class BulkInventoryCreate(BaseModel):
     items: List[InventoryItem]  # List of inventory items
+    entry_date: datetime
 
 
 
@@ -166,6 +166,7 @@ class SalesCreate(BaseModel):
     sale_price: float
     payment_type: str  # "1" or "2" (stored as text in DB)
     advance_amount: float = 0
+    entry_date: datetime
 
 
 class SalesResponse(BaseModel):
@@ -187,6 +188,7 @@ class SalesResponse(BaseModel):
     sold_by_role: Optional[str] = None
     edited: Optional[bool] = False
     created_at: Optional[str] = None
+    entry_date: Optional[str] = None
 
 
 class SalesUpdate(BaseModel):
@@ -197,6 +199,7 @@ class SalesUpdate(BaseModel):
     sale_price: Optional[float] = None
     payment_type: Optional[str] = None
     advance_amount: Optional[float] = None
+    entry_date: Optional[datetime] = None
 
 
 # Bulk Sales Schemas (for multi-product sales)
@@ -212,6 +215,7 @@ class BulkSalesCreate(BaseModel):
     customer_phone: Optional[str] = None
     payment_type: str  # "1" or "2"
     advance_amount: float = 0
+    entry_date: datetime
     items: List[SaleItem]  # List of products in this sale
 
 
@@ -223,6 +227,7 @@ class ExpenseCreate(BaseModel):
     amount: float
     payment_method: str  # "1" or "2" (stored as text in DB)
     advance_amount: float = 0
+    entry_date: datetime
 
 
 # Bulk Expense Schemas (for multi-item expenses)
@@ -235,6 +240,7 @@ class ExpenseItem(BaseModel):
 class BulkExpenseCreate(BaseModel):
     payment_method: str  # "1" or "2"
     advance_amount: float = 0
+    entry_date: datetime
     items: List[ExpenseItem]  # List of expense items
 
 
@@ -246,6 +252,7 @@ class ExpenseUpdate(BaseModel):
     advance_amount: Optional[float] = None
     used: Optional[bool] = None
     description: Optional[str] = None
+    entry_date: Optional[datetime] = None
 
 
 
@@ -264,6 +271,7 @@ class ExpenseResponse(BaseModel):
     added_by_role: Optional[str] = None
     edited: Optional[bool] = False
     created_at: Optional[str] = None
+    entry_date: Optional[str] = None
 
 
 # Dashboard Stats Schemas

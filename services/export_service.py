@@ -62,8 +62,9 @@ class ExportService:
         ))
 
     async def _get_ai_insights(self, sales_data, inventory_data, expenses_data, users_data):
+        """Returns AI insights text, or empty string if API is unavailable or fails (no error message shown)."""
         if not self.client:
-            return "AI Insights Unavailable: GROQ_API_KEY not found in environment."
+            return ""
 
         # Prepare summary for AI
         total_sales = sum(float(s.sale_price) * s.quantity for s in sales_data)
@@ -106,9 +107,9 @@ class ExportService:
                 temperature=0.7,
                 max_tokens=10000,
             )
-            return chat_completion.choices[0].message.content
-        except Exception as e:
-            return f"AI Generation Failed: {str(e)}"
+            return chat_completion.choices[0].message.content or ""
+        except Exception:
+            return ""
 
     def generate_pdf_report(self, sales, inventory, expenses, users):
         buffer = BytesIO()
@@ -141,35 +142,25 @@ class ExportService:
         story.append(Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", self.styles['Normal']))
         story.append(Spacer(1, 0.5 * inch))
 
-        # AI Section
-        story.append(Paragraph("AI Executive Summary & Insights", self.styles['SectionHeading']))
-        
-        # Parse and format AI text
-        lines = ai_text.split('\n')
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Parse bold markdown **text** -> <b>text</b>
-            # This regex looks for double asterisks surrounding text that doesn't contain double asterisks
-            line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
-            
-            # Parse list items
-            # Check for bullet points (* or - at start)
-            if line.startswith('* ') or line.startswith('- '):
-                # Use bullet character and indentation
-                clean_line = line[2:].strip()
-                # Use a bullet style or manual indentation
-                story.append(Paragraph(f"&bull; {clean_line}", self.styles['AIContent']))
-            elif line.startswith('###') or line.startswith('##'):
-                 # Convert headers to bold
-                clean_line = line.lstrip('#').strip()
-                story.append(Paragraph(f"<b>{clean_line}</b>", self.styles['AIContent']))
-            else:
-                story.append(Paragraph(line, self.styles['AIContent']))
-                
-        story.append(Spacer(1, 0.2 * inch))
+        # AI Section (only if LLM returned content; otherwise skip so we don't expose API failure)
+        if ai_text and ai_text.strip():
+            story.append(Paragraph("AI Executive Summary & Insights", self.styles['SectionHeading']))
+            lines = ai_text.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # Parse bold markdown **text** -> <b>text</b>
+                line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+                if line.startswith('* ') or line.startswith('- '):
+                    clean_line = line[2:].strip()
+                    story.append(Paragraph(f"&bull; {clean_line}", self.styles['AIContent']))
+                elif line.startswith('###') or line.startswith('##'):
+                    clean_line = line.lstrip('#').strip()
+                    story.append(Paragraph(f"<b>{clean_line}</b>", self.styles['AIContent']))
+                else:
+                    story.append(Paragraph(line, self.styles['AIContent']))
+            story.append(Spacer(1, 0.2 * inch))
 
         # Financial Overview
         story.append(Paragraph("Financial Overview", self.styles['SectionHeading']))

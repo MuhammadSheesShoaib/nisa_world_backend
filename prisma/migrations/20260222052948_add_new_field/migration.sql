@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "expenses" ADD COLUMN     "entry_date" TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "inventory" ADD COLUMN     "entry_date" TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "sales" ADD COLUMN     "entry_date" TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP;

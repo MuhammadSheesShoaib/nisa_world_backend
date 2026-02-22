@@ -35,6 +35,7 @@ async def create_inventory_product(
                 "category": product.category,
                 "cost_price": product.cost_price,
                 "quantity": product.quantity,
+                "entry_date": product.entry_date,
                 "added_by": str(current_user.id)
             }
         )
@@ -51,13 +52,13 @@ async def create_inventory_product(
             product_name=created_product.product_name,
             category=created_product.category,
             cost_price=float(created_product.cost_price),
-            sale_price=float(product.sale_price) if product.sale_price > 0 else float(created_product.cost_price) * 1.5,
             quantity=created_product.quantity,
             added_by=created_product.added_by,
             added_by_name=current_user.name,
             added_by_role=current_user.role,
             edited=created_product.edited if created_product.edited is not None else False,
-            created_at=str(created_product.created_at) if created_product.created_at else None
+            created_at=str(created_product.created_at) if created_product.created_at else None,
+            entry_date=str(created_product.entry_date) if created_product.entry_date else None
         )
     except Exception as e:
         raise HTTPException(
@@ -113,6 +114,7 @@ async def create_bulk_inventory(
                     "category": item.category,
                     "cost_price": item.cost_price,
                     "quantity": item.quantity,
+                    "entry_date": inventory_data.entry_date,
                     "added_by": str(current_user.id),
                 }
             )
@@ -123,21 +125,18 @@ async def create_bulk_inventory(
                     detail="Failed to create inventory item for one of the products"
                 )
             
-            # Calculate sale_price (default to 1.5x cost_price if not provided)
-            sale_price = item.sale_price if item.sale_price and item.sale_price > 0 else float(created_item.cost_price) * 1.5
-            
             created_items.append(InventoryResponse(
                 id=created_item.id,
                 invoice_no=created_item.invoice_no,
                 product_name=created_item.product_name,
                 category=created_item.category,
                 cost_price=float(created_item.cost_price),
-                sale_price=sale_price,
                 quantity=created_item.quantity,
                 added_by=created_item.added_by,
                 added_by_name=current_user.name,
                 edited=False,
-                created_at=str(created_item.created_at) if created_item.created_at else None
+                created_at=str(created_item.created_at) if created_item.created_at else None,
+                entry_date=str(created_item.entry_date) if created_item.entry_date else None
             ))
         
         return created_items
@@ -183,6 +182,7 @@ async def add_inventory_items_to_invoice(
                     "category": item.category,
                     "cost_price": item.cost_price,
                     "quantity": item.quantity,
+                    "entry_date": inventory_data.entry_date,
                     "added_by": str(current_user.id),
                     "edited": True,
                 }
@@ -194,21 +194,19 @@ async def add_inventory_items_to_invoice(
                     detail="Failed to add inventory item"
                 )
 
-            sale_price = item.sale_price if item.sale_price and item.sale_price > 0 else float(created_item.cost_price) * 1.5
-
             created_items.append(InventoryResponse(
                 id=created_item.id,
                 invoice_no=created_item.invoice_no,
                 product_name=created_item.product_name,
                 category=created_item.category,
                 cost_price=float(created_item.cost_price),
-                sale_price=sale_price,
                 quantity=created_item.quantity,
                 added_by=created_item.added_by,
                 added_by_name=current_user.name,
                 added_by_role=current_user.role,
                 edited=True,
-                created_at=str(created_item.created_at) if created_item.created_at else None
+                created_at=str(created_item.created_at) if created_item.created_at else None,
+                entry_date=str(created_item.entry_date) if created_item.entry_date else None
             ))
 
         return created_items
@@ -278,13 +276,13 @@ async def get_inventory_products(
                 product_name=item.product_name,
                 category=item.category,
                 cost_price=float(item.cost_price),
-                sale_price=float(item.cost_price) * 1.5,  # Calculate 50% markup
                 quantity=item.quantity,
                 added_by=item.added_by,
                 added_by_name=user_name,
                 added_by_role=user_role,
                 edited=item.edited if item.edited is not None else False,
-                created_at=str(item.created_at) if item.created_at else None
+                created_at=str(item.created_at) if item.created_at else None,
+                entry_date=str(item.entry_date) if item.entry_date else None
             ))
         
         return products
@@ -329,6 +327,8 @@ async def update_inventory_product(
             update_data["cost_price"] = product.cost_price
         if product.quantity is not None:
             update_data["quantity"] = product.quantity
+        if product.entry_date is not None:
+            update_data["entry_date"] = product.entry_date
         
         # Update product
         updated_product = await db.inventory.update(
@@ -348,12 +348,12 @@ async def update_inventory_product(
             product_name=updated_product.product_name,
             category=updated_product.category,
             cost_price=float(updated_product.cost_price),
-            sale_price=float(updated_product.cost_price) * 1.5,
             quantity=updated_product.quantity,
             added_by=updated_product.added_by,
             added_by_name=current_user.name,
             edited=updated_product.edited if updated_product.edited is not None else False,
-            created_at=str(updated_product.created_at) if updated_product.created_at else None
+            created_at=str(updated_product.created_at) if updated_product.created_at else None,
+            entry_date=str(updated_product.entry_date) if updated_product.entry_date else None
         )
     except HTTPException:
         raise

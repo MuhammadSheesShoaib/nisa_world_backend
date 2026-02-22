@@ -56,6 +56,7 @@ async def create_sale(
                 "quantity": sale.quantity,
                 "cost_price": product.cost_price,
                 "sale_price": sale.sale_price,
+                "entry_date": sale.entry_date,
                 "payment_type": str(sale.payment_type),
                 "advance_amount": sale.advance_amount if sale.advance_amount else 0,
                 "sold_by": str(current_user.id)
@@ -195,6 +196,7 @@ async def create_bulk_sale(
                     "quantity": item.quantity,
                     "cost_price": product.cost_price,
                     "sale_price": item.sale_price,
+                    "entry_date": sale_data.entry_date,
                     "payment_type": str(sale_data.payment_type),
                     "advance_amount": sale_data.advance_amount if sale_data.advance_amount else 0,
                     "sold_by": str(current_user.id)
@@ -313,6 +315,7 @@ async def add_sale_items_to_invoice(
                     "quantity": item.quantity,
                     "cost_price": product.cost_price,
                     "sale_price": item.sale_price,
+                    "entry_date": sale_data.entry_date,
                     "payment_type": str(sale_data.payment_type),
                     "advance_amount": final_advance if final_advance else 0,
                     "sold_by": str(current_user.id),
@@ -402,6 +405,8 @@ async def update_sale(
             update_data["customer_phone"] = sale.customer_phone
         if sale.sale_price is not None:
             update_data["sale_price"] = sale.sale_price
+        if sale.entry_date is not None:
+            update_data["entry_date"] = sale.entry_date
         if sale.payment_type is not None:
             update_data["payment_type"] = str(sale.payment_type)
         if sale.advance_amount is not None:
@@ -443,7 +448,8 @@ async def update_sale(
             sold_by_name=current_user.name,
             sold_by_role=current_user.role,
             edited=updated_sale.edited if updated_sale.edited is not None else False,
-            created_at=str(updated_sale.created_at) if updated_sale.created_at else None
+            created_at=str(updated_sale.created_at) if updated_sale.created_at else None,
+            entry_date=str(updated_sale.entry_date) if updated_sale.entry_date else None
         )
     except HTTPException:
         raise
@@ -603,7 +609,8 @@ async def get_sales(
                 sold_by_name=user_name,
                 sold_by_role=user_role,
                 edited=item.edited if item.edited is not None else False,
-                created_at=str(item.created_at) if item.created_at else None
+                created_at=str(item.created_at) if item.created_at else None,
+                entry_date=str(item.entry_date) if item.entry_date else None
             ))
         
         return sales
