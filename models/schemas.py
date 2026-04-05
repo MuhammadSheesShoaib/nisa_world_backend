@@ -225,9 +225,11 @@ class ExpenseCreate(BaseModel):
     material_name: str
     vendor_name: str
     amount: float
-    payment_method: str  # "1" or "2" (stored as text in DB)
+    payment_method: str  # "1" (Full), "2" (Advance), "3" (Khata)
     advance_amount: float = 0
     entry_date: datetime
+    total_amount: Optional[float] = None  # For Khata only
+    amount_taken: Optional[float] = None  # For Khata only
 
 
 # Bulk Expense Schemas (for multi-item expenses)
@@ -235,10 +237,12 @@ class ExpenseItem(BaseModel):
     material_name: str
     vendor_name: str
     amount: float
+    total_amount: Optional[float] = None  # For Khata items
+    amount_taken: Optional[float] = None  # For Khata items
 
 
 class BulkExpenseCreate(BaseModel):
-    payment_method: str  # "1" or "2"
+    payment_method: str  # "1" (Full), "2" (Advance), "3" (Khata)
     advance_amount: float = 0
     entry_date: datetime
     items: List[ExpenseItem]  # List of expense items
@@ -253,6 +257,7 @@ class ExpenseUpdate(BaseModel):
     used: Optional[bool] = None
     description: Optional[str] = None
     entry_date: Optional[datetime] = None
+    amount_taken: Optional[float] = None  # For Khata - new taking amount
 
 
 
@@ -272,6 +277,10 @@ class ExpenseResponse(BaseModel):
     edited: Optional[bool] = False
     created_at: Optional[str] = None
     entry_date: Optional[str] = None
+    total_amount: Optional[float] = None  # For Khata
+    amount_taken: Optional[float] = 0  # For Khata
+    remaining_amount: Optional[float] = None  # For Khata
+    payment_history: Optional[str] = None  # JSON string of takings
 
 
 # Dashboard Stats Schemas

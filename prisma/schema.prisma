@@ -17,18 +17,22 @@ model categories {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model expenses {
-  id             Int       @id @default(autoincrement())
-  invoice_no     String?   @default(dbgenerated("('INV-'::text || lpad((nextval('invoice_seq'::regclass))::text, 6, '0'::text))"))
-  material_name  String
-  amount         Decimal   @db.Decimal(10, 2)
-  payment_method String
-  advance_amount Decimal?  @default(0) @db.Decimal(10, 2)
-  used           Boolean?  @default(false)
-  added_by       String
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
-  entry_date     DateTime? @default(now()) @db.Timestamp(6)
-  description    String?
-  edited         Boolean?  @default(false)
+  id               Int       @id @default(autoincrement())
+  invoice_no       String?   @default(dbgenerated("('INV-'::text || lpad((nextval('invoice_seq'::regclass))::text, 6, '0'::text))"))
+  material_name    String
+  amount           Decimal   @db.Decimal(10, 2)
+  payment_method   String
+  advance_amount   Decimal?  @default(0) @db.Decimal(10, 2)
+  used             Boolean?  @default(false)
+  added_by         String
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  entry_date       DateTime? @default(now()) @db.Timestamp(6)
+  description      String?
+  edited           Boolean?  @default(false)
+  total_amount     Decimal?  @db.Decimal(10, 2)
+  amount_taken     Decimal?  @default(0) @db.Decimal(10, 2)
+  remaining_amount Decimal?  @db.Decimal(10, 2)
+  payment_history  String?
 }
 
 model inventory {

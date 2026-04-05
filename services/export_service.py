@@ -749,28 +749,29 @@ class ExportService:
         total_advance = float(getattr(first_expense_for_payment, 'advance_amount', None) or 0)
         total_remaining = total_amount - total_advance
         is_advance_payment = (payment_method == "2") or (total_advance > 0)
-        
+        is_khata = (payment_method == "3")
+
         # Items Table
         items_table_data = [['ITEM', 'AMOUNT']]
-        
+
         for expense in expenses_data:
-            # Split material_name to get material name
             if " - " in expense.material_name:
                 parts = expense.material_name.split(" - ", 1)
                 material_name = parts[0]
             else:
                 material_name = expense.material_name
-            amount = float(expense.amount)
-            
-            items_table_data.append([
-                material_name,
-                f"Rs {amount:,.2f}"
-            ])
-        
+
+            if is_khata:
+                khata_total = float(getattr(expense, 'total_amount', None) or expense.amount)
+                items_table_data.append([material_name, f"Rs {khata_total:,.2f}"])
+            else:
+                amount = float(expense.amount)
+                items_table_data.append([material_name, f"Rs {amount:,.2f}"])
+
         # Add empty rows if needed
         while len(items_table_data) < 5:
             items_table_data.append(['', ''])
-        
+
         items_table = Table(items_table_data, colWidths=[5*inch, 2*inch])
         items_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#AEB877')),
@@ -787,25 +788,111 @@ class ExportService:
         ]))
         story.append(items_table)
         story.append(Spacer(1, 0.3*inch))
-        
-        # Summary Section - Advance: Total, Advance Amount, Balance Due; Full: Total only
-        summary_data = [['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"]]
-        if is_advance_payment:
-            summary_data.append(['ADVANCE AMOUNT:', f"Rs {total_advance:,.2f}"])
-            summary_data.append(['BALANCE DUE:', f"Rs {total_remaining:,.2f}"])
-        
-        summary_table = Table(summary_data, colWidths=[5*inch, 2*inch])
-        summary_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ]))
-        story.append(KeepTogether(summary_table))
-        story.append(Spacer(1, 0.5*inch))
-        
+
+        # --- Khata Summary & History ---
+        if is_khata:
+            khata_expense = expenses_data[0]
+            khata_total_amount = float(getattr(khata_expense, 'total_amount', None) or khata_expense.amount)
+            khata_amount_taken = float(getattr(khata_expense, 'amount_taken', None) or 0)
+            khata_remaining = max(0, float(getattr(khata_expense, 'remaining_amount', None) or (khata_total_amount - khata_amount_taken)))
+
+            # Khata summary table
+            khata_status = "CLEARED" if khata_remaining <= 0 else "PENDING"
+            khata_summary_data = [
+                ['KHATA TOTAL AMOUNT:', f"Rs {khata_total_amount:,.2f}"],
+                ['TOTAL TAKEN:', f"Rs {khata_amount_taken:,.2f}"],
+                ['REMAINING BALANCE:', f"Rs {khata_remaining:,.2f}"],
+                ['STATUS:', khata_status],
+            ]
+            khata_summary_table = Table(khata_summary_data, colWidths=[5*inch, 2*inch])
+            khata_summary_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 2), (1, 2), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 3), (1, 3), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor('#D97706')),  # warning orange for remaining
+                ('TEXTCOLOR', (1, 3), (1, 3), colors.HexColor('#16A34A') if khata_remaining <= 0 else colors.HexColor('#D97706')),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('LINEABOVE', (0, 0), (-1, 0), 0.5, colors.grey),
+            ]))
+            story.append(KeepTogether(khata_summary_table))
+            story.append(Spacer(1, 0.3*inch))
+
+            # Payment history table
+            payment_history_raw = getattr(khata_expense, 'payment_history', None)
+            payment_history = []
+            if payment_history_raw:
+                try:
+                    import json as _json
+                    payment_history = _json.loads(payment_history_raw)
+                except:
+                    payment_history = []
+
+            if payment_history:
+                story.append(Paragraph("Khata Taking History", self.styles['SectionHeading']))
+                history_table_data = [['#', 'DATE', 'AMOUNT TAKEN', 'RUNNING BALANCE']]
+                running_balance = khata_total_amount
+                for i, entry in enumerate(payment_history, 1):
+                    taken = float(entry.get('amount', 0))
+                    running_balance = max(0, running_balance - taken)
+                    history_table_data.append([
+                        str(i),
+                        str(entry.get('date', '')),
+                        f"Rs {taken:,.2f}",
+                        f"Rs {running_balance:,.2f}",
+                    ])
+                history_table = Table(history_table_data, colWidths=[0.4*inch, 2.5*inch, 2*inch, 2.1*inch])
+                history_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#AEB877')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                    ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9F9F0')]),
+                ]))
+                story.append(history_table)
+                story.append(Spacer(1, 0.3*inch))
+
+        # --- Regular Summary (Full / Advance) ---
+        elif is_advance_payment:
+            summary_data = [
+                ['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"],
+                ['ADVANCE AMOUNT:', f"Rs {total_advance:,.2f}"],
+                ['BALANCE DUE:', f"Rs {total_remaining:,.2f}"],
+            ]
+            summary_table = Table(summary_data, colWidths=[5*inch, 2*inch])
+            summary_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            story.append(KeepTogether(summary_table))
+            story.append(Spacer(1, 0.5*inch))
+        else:
+            summary_data = [['TOTAL AMOUNT:', f"Rs {total_amount:,.2f}"]]
+            summary_table = Table(summary_data, colWidths=[5*inch, 2*inch])
+            summary_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            story.append(KeepTogether(summary_table))
+            story.append(Spacer(1, 0.5*inch))
+
         # Footer
         story.append(Paragraph("Thank you for your business!", self.styles['Heading3']))
         

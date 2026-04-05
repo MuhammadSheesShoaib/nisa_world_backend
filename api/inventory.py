@@ -224,16 +224,23 @@ async def add_inventory_items_to_invoice(
 
 @router.get("/products", response_model=List[InventoryResponse])
 async def get_inventory_products(
+    for_sales: bool = False,
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
     Get inventory products
-    - All users (admin and staff) see all products - inventory is shared
+    - Admin: sees all products
+    - Staff: sees only their own products normally, or all if for_sales=True
     """
     try:
         db = get_db()
         
+        where_clause = {}
+        if current_user.role == "staff" and not for_sales:
+            where_clause["added_by"] = str(current_user.id)
+            
         products_data = await db.inventory.find_many(
+            where=where_clause if where_clause else None,
             order={"created_at": "desc"}
         )
         
@@ -316,6 +323,12 @@ async def update_inventory_product(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
             )
+            
+        if current_user.role == "staff" and existing_product.added_by != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to edit this product"
+            )
         
         # Build update data (only include fields that were provided)
         update_data = {"edited": True}
@@ -389,6 +402,12 @@ async def delete_inventory_product(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
             )
+            
+        if current_user.role == "staff" and existing_product.added_by != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to delete this product"
+            )
         
         # Delete product
         deleted_product = await db.inventory.delete(
@@ -418,14 +437,19 @@ async def generate_inventory_invoice_pdf(
 ):
     """
     Generate PDF invoice for a specific inventory invoice_no
-    - All users can generate invoices for any inventory (inventory is shared)
+    - Admin: can generate for any invoice
+    - Staff: can only generate for their own invoices
     """
     try:
         db = get_db()
         
+        where_clause = {"invoice_no": invoice_no}
+        if current_user.role == "staff":
+            where_clause["added_by"] = str(current_user.id)
+            
         # Fetch all inventory items related to this invoice_no
         inventory_data = await db.inventory.find_many(
-            where={"invoice_no": invoice_no},
+            where=where_clause,
             order={"created_at": "asc"}
         )
         

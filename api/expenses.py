@@ -13,6 +13,8 @@ from dependencies import get_current_user
 from database import get_db
 from services.export_service import export_service
 import traceback
+import json
+from datetime import datetime
 
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
@@ -27,10 +29,10 @@ async def create_expense(
     """
     try:
         db = get_db()
-        
+
         # Combine material_name and vendor_name
         combined_name = f"{expense.material_name} - {expense.vendor_name}"
-        
+
         insert_data = {
             "material_name": combined_name,
             "amount": expense.amount,
@@ -40,19 +42,33 @@ async def create_expense(
             "added_by": str(current_user.id),
             "used": False,
         }
-        
+
+        # Handle Khata payment type
+        if str(expense.payment_method) == "3":  # Khata
+            insert_data["total_amount"] = expense.total_amount if expense.total_amount else expense.amount
+            insert_data["amount_taken"] = min(expense.amount_taken if expense.amount_taken else 0, insert_data["total_amount"])
+            insert_data["remaining_amount"] = max(0, insert_data["total_amount"] - insert_data["amount_taken"])
+            # Create payment history with first taking
+            payment_history = []
+            if insert_data["amount_taken"] > 0:
+                payment_history.append({
+                    "date": str(expense.entry_date.date()),
+                    "amount": insert_data["amount_taken"]
+                })
+            insert_data["payment_history"] = json.dumps(payment_history)
+
         print(f"📝 Creating expense with data: {insert_data}")
-        
+
         created_expense = await db.expenses.create(data=insert_data)
-        
+
         print(f"✅ Created expense: {created_expense}")
-        
+
         if not created_expense:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to create expense"
             )
-        
+
         # Split back the material_name for response
         if " - " in created_expense.material_name:
             parts = created_expense.material_name.split(" - ", 1)
@@ -61,7 +77,7 @@ async def create_expense(
         else:
             material_name = created_expense.material_name
             vendor_name = "Unknown"
-        
+
         return ExpenseResponse(
             id=created_expense.id,
             invoice_no=created_expense.invoice_no,
@@ -75,9 +91,13 @@ async def create_expense(
             added_by=created_expense.added_by,
             added_by_name=current_user.name,
             added_by_role=current_user.role,
-            edited=False,  # New entries are not edited
+            edited=False,
             created_at=str(created_expense.created_at) if created_expense.created_at else None,
-            entry_date=str(created_expense.entry_date) if created_expense.entry_date else None
+            entry_date=str(created_expense.entry_date) if created_expense.entry_date else None,
+            total_amount=float(created_expense.total_amount) if created_expense.total_amount is not None else None,
+            amount_taken=float(created_expense.amount_taken) if created_expense.amount_taken is not None else 0,
+            remaining_amount=float(created_expense.remaining_amount) if created_expense.remaining_amount is not None else None,
+            payment_history=created_expense.payment_history
         )
     except HTTPException:
         raise
@@ -133,27 +153,41 @@ async def create_bulk_expense(
         for item in expense_data.items:
             # Combine material_name and vendor_name
             combined_name = f"{item.material_name} - {item.vendor_name}"
-            
+
+            create_data = {
+                "invoice_no": invoice_no,
+                "material_name": combined_name,
+                "amount": item.amount,
+                "payment_method": str(expense_data.payment_method),
+                "advance_amount": expense_data.advance_amount if expense_data.advance_amount else 0,
+                "entry_date": expense_data.entry_date,
+                "added_by": str(current_user.id),
+                "used": False,
+            }
+
+            # Handle Khata payment type for bulk items
+            if str(expense_data.payment_method) == "3":  # Khata
+                create_data["total_amount"] = item.total_amount if item.total_amount else item.amount
+                create_data["amount_taken"] = min(item.amount_taken if item.amount_taken else 0, create_data["total_amount"])
+                create_data["remaining_amount"] = max(0, create_data["total_amount"] - create_data["amount_taken"])
+                # Create payment history with first taking
+                payment_history = []
+                if create_data["amount_taken"] > 0:
+                    payment_history.append({
+                        "date": str(expense_data.entry_date.date()),
+                        "amount": create_data["amount_taken"]
+                    })
+                create_data["payment_history"] = json.dumps(payment_history)
+
             # Create expense
-            created_expense = await db.expenses.create(
-                data={
-                    "invoice_no": invoice_no,
-                    "material_name": combined_name,
-                    "amount": item.amount,
-                    "payment_method": str(expense_data.payment_method),
-                    "advance_amount": expense_data.advance_amount if expense_data.advance_amount else 0,
-                    "entry_date": expense_data.entry_date,
-                    "added_by": str(current_user.id),
-                    "used": False,
-                }
-            )
-            
+            created_expense = await db.expenses.create(data=create_data)
+
             if not created_expense:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Failed to create expense for one of the items"
                 )
-            
+
             # Split back the material_name for response
             if " - " in created_expense.material_name:
                 parts = created_expense.material_name.split(" - ", 1)
@@ -162,7 +196,7 @@ async def create_bulk_expense(
             else:
                 material_name = created_expense.material_name
                 vendor_name = "Unknown"
-            
+
             created_expenses.append(ExpenseResponse(
                 id=created_expense.id,
                 invoice_no=created_expense.invoice_no,
@@ -178,7 +212,11 @@ async def create_bulk_expense(
                 added_by_role=current_user.role,
                 edited=False,
                 created_at=str(created_expense.created_at) if created_expense.created_at else None,
-                entry_date=str(created_expense.entry_date) if created_expense.entry_date else None
+                entry_date=str(created_expense.entry_date) if created_expense.entry_date else None,
+                total_amount=float(created_expense.total_amount) if created_expense.total_amount is not None else None,
+                amount_taken=float(created_expense.amount_taken) if created_expense.amount_taken is not None else 0,
+                remaining_amount=float(created_expense.remaining_amount) if created_expense.remaining_amount is not None else None,
+                payment_history=created_expense.payment_history
             ))
         
         return created_expenses
@@ -364,7 +402,11 @@ async def get_expenses(
                 added_by_role=user_info["role"],
                 edited=item.edited if item.edited is not None else False,
                 created_at=str(item.created_at) if item.created_at else None,
-                entry_date=str(item.entry_date) if item.entry_date else None
+                entry_date=str(item.entry_date) if item.entry_date else None,
+                total_amount=float(item.total_amount) if item.total_amount is not None else None,
+                amount_taken=float(item.amount_taken) if item.amount_taken is not None else 0,
+                remaining_amount=float(item.remaining_amount) if item.remaining_amount is not None else None,
+                payment_history=item.payment_history
             ))
         
         return expenses
@@ -442,7 +484,39 @@ async def update_expense(
         
         if expense_update.entry_date is not None:
             update_data["entry_date"] = expense_update.entry_date
-        
+
+        # Handle Khata payment - adding new taking
+        if expense_update.amount_taken is not None and str(expense_data.payment_method) == "3":
+            khata_total = float(expense_data.total_amount or 0)
+            current_remaining = float(expense_data.remaining_amount or 0)
+
+            # Guard: nothing left to take
+            if current_remaining <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This Khata is fully cleared. No further takings are possible."
+                )
+
+            # Cap new taking at remaining
+            new_taking = min(float(expense_update.amount_taken), current_remaining)
+
+            current_history = []
+            if expense_data.payment_history:
+                try:
+                    current_history = json.loads(expense_data.payment_history)
+                except:
+                    current_history = []
+
+            current_history.append({
+                "date": str(datetime.now().date()),
+                "amount": new_taking
+            })
+
+            total_taken = sum(item["amount"] for item in current_history)
+            update_data["amount_taken"] = min(total_taken, khata_total)
+            update_data["remaining_amount"] = max(0, khata_total - total_taken)
+            update_data["payment_history"] = json.dumps(current_history)
+
         # Update the expense
         updated_expense = await db.expenses.update(
             where={"id": expense_id},
@@ -487,7 +561,11 @@ async def update_expense(
             added_by_role="admin" if user_info["role_id"] == 1 else "staff",
             edited=updated_expense.edited if updated_expense.edited is not None else False,
             entry_date=str(updated_expense.entry_date) if updated_expense.entry_date else None,
-            created_at=str(updated_expense.created_at) if updated_expense.created_at else None
+            created_at=str(updated_expense.created_at) if updated_expense.created_at else None,
+            total_amount=float(updated_expense.total_amount) if updated_expense.total_amount is not None else None,
+            amount_taken=float(updated_expense.amount_taken) if updated_expense.amount_taken is not None else 0,
+            remaining_amount=float(updated_expense.remaining_amount) if updated_expense.remaining_amount is not None else None,
+            payment_history=updated_expense.payment_history
         )
     except HTTPException:
         raise
